@@ -83,6 +83,9 @@ function showTab(tab){
   if(navBtn) navBtn.classList.add('active');
   
   if(tab === 'generator') { updatePreviewTags(); }
+  
+  // Rola a página para o topo suavemente ao trocar de tela
+  window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
 function goToDashboard() {
@@ -105,12 +108,20 @@ async function renderDashboard(){
     return;
   }
 
+  // ESTADO VAZIO: Usuário novo
   if (!historico || historico.length === 0) {
     document.getElementById('stat-resolvidas').textContent = '0';
     document.getElementById('stat-taxa').textContent = '0%';
     document.getElementById('stat-tempo').textContent = '0s';
     document.getElementById('stat-simulados').textContent = '0';
     document.getElementById('disc-perf').innerHTML = '<p class="muted" style="font-size:13px">Nenhum simulado realizado ainda.</p>';
+    
+    // Zera as metas para usuários novos
+    document.getElementById('meta-q-text').innerHTML = `0 <span class="muted">/ 50</span>`;
+    document.getElementById('meta-q-bar').style.width = '0%';
+    document.getElementById('meta-s-text').innerHTML = `0 <span class="muted">/ 5</span>`;
+    document.getElementById('meta-s-bar').style.width = '0%';
+    document.getElementById('meta-desc').textContent = "Faltam 50 questões para atingir sua meta!";
     
     const historicoAcessos = await getLoginHistory(); 
     const historyHtml = historicoAcessos.map(l => `
@@ -124,6 +135,7 @@ async function renderDashboard(){
     return;
   }
 
+  // ESTADO COM DADOS: Calcula o progresso do usuário
   let totalAcertos = 0;
   let totalErros = 0;
   let tempoTotal = 0;
@@ -148,11 +160,29 @@ async function renderDashboard(){
   const min = Math.floor(tempoMedio / 60);
   const seg = tempoMedio % 60;
 
+  // Atualiza Estatísticas Principais
   document.getElementById('stat-resolvidas').textContent = totalQuestoes;
   document.getElementById('stat-taxa').textContent = taxaAcerto + '%';
   document.getElementById('stat-tempo').textContent = min > 0 ? `${min}m${seg}s` : `${seg}s`;
   document.getElementById('stat-simulados').textContent = historico.length;
 
+  // Atualiza a Meta Semanal com dados reais
+  const metaQtd = 50;
+  const metaSim = 5;
+  const pctQ = Math.min(Math.round((totalQuestoes / metaQtd) * 100), 100);
+  const pctS = Math.min(Math.round((historico.length / metaSim) * 100), 100);
+
+  document.getElementById('meta-q-text').innerHTML = `${totalQuestoes} <span class="muted">/ ${metaQtd}</span>`;
+  document.getElementById('meta-q-bar').style.width = pctQ + '%';
+  document.getElementById('meta-s-text').innerHTML = `${historico.length} <span class="muted">/ ${metaSim}</span>`;
+  document.getElementById('meta-s-bar').style.width = pctS + '%';
+
+  const faltam = Math.max(0, metaQtd - totalQuestoes);
+  document.getElementById('meta-desc').textContent = faltam > 0 
+    ? `Faltam ${faltam} questões para atingir sua meta!` 
+    : "Parabéns! Você atingiu sua meta de questões!";
+
+  // Atualiza Barras de Disciplinas
   document.getElementById('disc-perf').innerHTML = Object.keys(performancePorDisciplina).map(nome => {
     const d = performancePorDisciplina[nome];
     const pct = Math.round((d.acertos / d.total) * 100);
@@ -169,6 +199,7 @@ async function renderDashboard(){
     </div>`;
   }).join('');
 
+  // Atualiza Últimos Acessos
   const historicoAcessos = await getLoginHistory(); 
   const historyHtml = historicoAcessos.map(l => `
     <div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border)">
@@ -338,13 +369,13 @@ async function showResult(){
 
 /* ── RECUPERAÇÃO DE SENHA ───────────────────────────── */
 function showForgotPassword() {
-  document.getElementById('card-login').style.display = 'none'; // Corrigido aqui
+  document.getElementById('card-login').style.display = 'none'; 
   document.getElementById('forgot-box').style.display = 'block';
 }
 
 function hideForgotPassword() {
   document.getElementById('forgot-box').style.display = 'none';
-  document.getElementById('card-login').style.display = 'block'; // Corrigido aqui
+  document.getElementById('card-login').style.display = 'block'; 
 }
 
 async function sendRecoveryEmail() {
@@ -393,7 +424,7 @@ async function checkUserSession() {
     document.getElementById('login-page').style.display = 'flex';
     document.getElementById('main-app').style.display = 'none';
     
-    document.getElementById('card-login').style.display = 'none'; // Corrigido aqui
+    document.getElementById('card-login').style.display = 'none'; 
     document.getElementById('forgot-box').style.display = 'none';
     document.getElementById('reset-box').style.display = 'block';
     return;
