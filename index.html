@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>QuestionFive</title>
+  
+  <link rel="stylesheet" href="style.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+<div id="app">
+
+  <div id="login-page" class="login-wrap">
+    
+    <div class="login-card" id="card-login">
+      <div class="login-logo">
+        <div class="brand">QUESTION<span style="color:var(--text)">FIVE</span></div>
+        <div class="sub">Plataforma de questões para concursos</div>
+      </div>
+      <div class="field">
+        <label>E-mail</label>
+        <input type="email" id="login-email" placeholder="seu@email.com" />
+      </div>
+      <div class="field">
+        <label>Senha</label>
+        <div style="text-align:right; margin-top:-20px; margin-bottom:5px;">
+          <a href="#" onclick="showForgotPassword()" style="font-size:12px; color:var(--accent); text-decoration:none;">Esqueceu a senha?</a>
+        </div>
+        <input type="password" id="login-pass" placeholder="••••••••" />
+      </div>
+      <button class="btn" id="btn-login" onclick="doLogin()">Entrar na plataforma</button>
+      <p style="text-align:center;margin-top:18px;font-size:13px;color:var(--muted)">
+        Ainda não tem conta? <span style="color:var(--accent);cursor:pointer;font-weight:600;" onclick="toggleAuth('signup')">Criar agora</span>
+      </p>
+    </div>
+
+    <div class="login-card" id="card-signup" style="display:none">
+      <div class="login-logo">
+        <div class="brand">QUESTION<span style="color:var(--text)">FIVE</span></div>
+        <div class="sub">Crie sua conta gratuitamente</div>
+      </div>
+      <div class="field">
+        <label>Nome ou Apelido</label>
+        <input type="text" id="signup-name" placeholder="Como quer ser chamado?" />
+      </div>
+      <div class="field">
+        <label>E-mail</label>
+        <input type="email" id="signup-email" placeholder="seu@email.com" />
+      </div>
+      <div class="field">
+        <label>Senha</label>
+        <input type="password" id="signup-pass" placeholder="Mínimo 6 caracteres" />
+      </div>
+      <button class="btn" id="btn-signup" onclick="doSignUp()">Criar minha conta</button>
+      <p style="text-align:center;margin-top:18px;font-size:13px;color:var(--muted)">
+        Já tem uma conta? <span style="color:var(--accent);cursor:pointer;font-weight:600;" onclick="toggleAuth('login')">Fazer login</span>
+      </p>
+    </div>
+
+    <div id="forgot-box" class="login-box card" style="display:none;">
+      <h2 style="margin-bottom:5px">Recuperar Senha</h2>
+      <p class="muted" style="margin-bottom:20px; font-size:13px">Enviaremos um link de recuperação para você.</p>
+      
+      <div class="field">
+        <label>Email da conta</label>
+        <input type="email" id="forgot-email" placeholder="seu@email.com">
+      </div>
+      
+      <button class="btn" style="width:100%" onclick="sendRecoveryEmail()">Enviar Link</button>
+      <button class="btn btn-outline" style="width:100%; margin-top:10px" onclick="hideForgotPassword()">Voltar ao Login</button>
+      
+      <div id="forgot-msg" style="margin-top:15px; font-size:13px; text-align:center;"></div>
+    </div>
+
+    <div id="reset-box" class="login-box card" style="display:none;">
+      <h2 style="margin-bottom:5px">Nova Senha</h2>
+      <p class="muted" style="margin-bottom:20px; font-size:13px">Digite sua nova senha abaixo.</p>
+      
+      <div class="field">
+        <label>Sua Nova Senha</label>
+        <input type="password" id="new-password" placeholder="Mínimo 6 caracteres">
+      </div>
+      
+      <button class="btn" style="width:100%" onclick="updatePassword()">Salvar e Entrar</button>
+      <div id="reset-msg" style="margin-top:15px; font-size:13px; text-align:center;"></div>
+    </div>
+
+  </div>
+
+  <div id="main-app" style="display:none">
+    <nav>
+      <div class="logo"><span class="logo-dot"></span>QUESTIONFIVE</div>
+      <div class="nav-links">
+        <button onclick="showTab('dashboard')" id="nav-dashboard" class="active">Dashboard</button>
+        <button onclick="showTab('generator')" id="nav-generator">Gerar Simulado</button>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px">
+        <button class="btn-logout" onclick="doLogout()">Sair</button>
+      </div>
+    </nav>
+
+    <div id="tab-dashboard" class="page active">
+      <div style="margin-bottom:24px">
+        <h2 id="dash-title">Bom dia 👋</h2>
+        <p class="muted" style="margin-top:4px">Acompanhe seu desempenho e continue evoluindo.</p>
+      </div>
+      <div class="g4" style="margin-bottom:20px">
+        <div class="card2">
+          <div class="muted" style="font-size:11px;text-transform:uppercase;letter-spacing:.5px">Questões resolvidas</div>
+          <div class="stat-val" id="stat-resolvidas">0</div>
+          <div style="font-size:11px;color:var(--success);margin-top:5px">Contagem total</div>
+        </div>
+        <div class="card2">
+          <div class="muted" style="font-size:11px;text-transform:uppercase;letter-spacing:.5px">Taxa de acerto</div>
+          <div class="stat-val" id="stat-taxa">0%</div>
+          <div style="font-size:11px;color:var(--success);margin-top:5px">Média geral</div>
+        </div>
+        <div class="card2">
+          <div class="muted" style="font-size:11px;text-transform:uppercase;letter-spacing:.5px">Tempo médio</div>
+          <div class="stat-val" id="stat-tempo">0s</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:5px">Por questão</div>
+        </div>
+        <div class="card2">
+          <div class="muted" style="font-size:11px;text-transform:uppercase;letter-spacing:.5px">Simulados feitos</div>
+          <div class="stat-val" id="stat-simulados">0</div>
+          <div style="font-size:11px;color:var(--accent);margin-top:5px">Na plataforma</div>
+        </div>
+      </div>
+      
+      <div class="g2" style="margin-bottom:20px">
+        <div class="card">
+          <h3 style="margin-bottom:16px">Meta Semanal</h3>
+          <div style="display:flex;justify-content:space-between;margin-bottom:5px">
+            <span class="muted">Questões resolvidas</span>
+            <span style="font-size:13px;font-weight:600">35 <span class="muted">/ 50</span></span>
+          </div>
+          <div class="progress-bar"><div class="progress-fill" style="width:70%;background:var(--accent)"></div></div>
+          <div style="display:flex;justify-content:space-between;margin:14px 0 5px">
+            <span class="muted">Simulados concluídos</span>
+            <span style="font-size:13px;font-weight:600">3 <span class="muted">/ 5</span></span>
+          </div>
+          <div class="progress-bar"><div class="progress-fill" style="width:60%;background:var(--success)"></div></div>
+          <p class="muted" style="font-size:11px;margin-top:10px">Faltam 15 questões para atingir sua meta!</p>
+        </div>
+        
+        <div class="card">
+          <h3 style="margin-bottom:14px">Últimos Acessos</h3>
+          <div id="login-history"></div>
+        </div>
+      </div>
+      
+      <div class="card">
+        <h3 style="margin-bottom:16px">Desempenho por Disciplina</h3>
+        <div id="disc-perf"></div>
+      </div>
+    </div>
+
+    <div id="tab-generator" class="page" style="max-width:660px">
+      <div style="margin-bottom:24px">
+        <h2>Gerar Simulado com IA</h2>
+        <p class="muted" style="margin-top:4px">As questões são geradas pelo Google Gemini em tempo real.</p>
+      </div>
+      
+      <div class="card">
+        <div class="g2" style="margin-bottom:16px">
+          <div class="field" style="margin-bottom:0">
+            <label>Disciplina</label>
+            <select id="sel-disciplina">
+              <option value="Português">Português</option>
+              <option value="Matemática">Matemática</option>
+              <option value="História">História</option>
+              <option value="Geografia">Geografia</option>
+              <option value="Inglês">Inglês</option>
+              <option value="Religião">Religião</option>
+              <option value="Ciências">Ciências</option>
+            </select>
+          </div>
+          <div class="field" style="margin-bottom:0">
+            <label>Assunto</label>
+            <input type="text" id="sel-assunto" placeholder="Ex: Frações, Segunda Guerra..." autocomplete="off" />
+          </div>
+        </div>
+        
+        <div class="g2" style="margin-bottom:20px">
+          <div class="field" style="margin-bottom:0">
+            <label>Quantidade</label>
+            <select id="sel-qtd">
+              <option value="3">3 questões</option>
+              <option value="5" selected>5 questões</option>
+              <option value="10">10 questões</option>
+            </select>
+          </div>
+          <div class="field" style="margin-bottom:0">
+            <label>Nível</label>
+            <select id="sel-ano">
+              <optgroup label="Ensino Fundamental">
+                <option value="1º Ano do Ensino Fundamental">1º Ano (Fund.)</option>
+                <option value="2º Ano do Ensino Fundamental">2º Ano (Fund.)</option>
+                <option value="3º Ano do Ensino Fundamental">3º Ano (Fund.)</option>
+                <option value="4º Ano do Ensino Fundamental">4º Ano (Fund.)</option>
+                <option value="5º Ano do Ensino Fundamental">5º Ano (Fund.)</option>
+                <option value="6º Ano do Ensino Fundamental">6º Ano (Fund.)</option>
+                <option value="7º Ano do Ensino Fundamental">7º Ano (Fund.)</option>
+                <option value="8º Ano do Ensino Fundamental">8º Ano (Fund.)</option>
+                <option value="9º Ano do Ensino Fundamental" selected>9º Ano (Fund.)</option>
+              </optgroup>
+              <optgroup label="Ensino Médio">
+                <option value="1º Ano do Ensino Médio">1º Ano (Médio)</option>
+                <option value="2º Ano do Ensino Médio">2º Ano (Médio)</option>
+                <option value="3º Ano do Ensino Médio">3º Ano (Médio)</option>
+              </optgroup>
+            </select>
+          </div>
+        </div>
+        
+        <div id="preview-tags" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:18px"></div>
+        <button class="btn" id="btn-gerar" onclick="startSimulado()">✦ Gerar Simulado com IA</button>
+      </div>
+    </div>
+
+    <div id="tab-quiz" class="page" style="max-width:760px">
+      <div class="q-topbar">
+        <button class="btn btn-outline btn-sm" onclick="endQuiz()">← Sair</button>
+        <div class="q-progress-wrap">
+          <div class="q-counter" id="q-counter">Questão 1 de 5</div>
+          <div class="progress-bar"><div class="progress-fill" id="q-progress" style="width:20%;background:var(--accent)"></div></div>
+        </div>
+        <div style="font-size:12px;font-family:var(--mono);color:var(--muted)" id="q-timer">00:00</div>
+      </div>
+      
+      <div id="quiz-loading" class="loading-wrap" style="display:none">
+        <div class="spinner"></div>
+        <div class="loading-text">Gerando questões com Gemini AI...</div>
+      </div>
+      
+      <div id="quiz-content" style="display:none">
+        <div class="card" style="margin-bottom:14px">
+          <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap" id="q-tags"></div>
+          <p id="q-enunciado" style="font-size:15px;line-height:1.75;color:var(--text)"></p>
+        </div>
+        <div id="q-alts"></div>
+        <div id="q-comment" style="display:none"></div>
+        <div id="q-next" style="margin-top:16px;display:none">
+          <button class="btn" onclick="nextQuestion()" id="btn-next">Próxima questão →</button>
+        </div>
+      </div>
+      
+      <div id="quiz-error" style="display:none;text-align:center;padding:40px 20px">
+        <h3 style="color:var(--error);margin-bottom:8px">Erro ao gerar</h3>
+        <p class="muted" id="quiz-error-msg" style="margin-bottom:20px">Ocorreu um erro no servidor.</p>
+        <button class="btn btn-outline btn-sm" onclick="showTab('generator')">← Voltar</button>
+      </div>
+    </div>
+
+    <div id="tab-result" class="page" style="max-width:660px">
+      <div class="card" style="margin-bottom:16px;text-align:center;padding:32px">
+        <div class="result-score-ring" id="result-ring">
+          <div class="result-pct" id="res-score">80%</div>
+          <div class="result-label">acertos</div>
+        </div>
+        <h2 id="res-title" style="margin-bottom:6px">Excelente!</h2>
+        <p class="muted" id="res-desc">Você acertou 4 de 5 questões</p>
+      </div>
+      
+      <div class="g3" style="margin-bottom:16px">
+        <div class="card2" style="text-align:center">
+          <div class="muted" style="font-size:11px;text-transform:uppercase">Acertos</div>
+          <div style="font-size:24px;font-weight:700;color:var(--success);font-family:var(--mono)" id="res-acertos">4</div>
+        </div>
+        <div class="card2" style="text-align:center">
+          <div class="muted" style="font-size:11px;text-transform:uppercase">Erros</div>
+          <div style="font-size:24px;font-weight:700;color:var(--error);font-family:var(--mono)" id="res-erros">1</div>
+        </div>
+        <div class="card2" style="text-align:center">
+          <div class="muted" style="font-size:11px;text-transform:uppercase">Tempo</div>
+          <div style="font-size:24px;font-weight:700;font-family:var(--mono)" id="res-tempo">2m20s</div>
+        </div>
+      </div>
+      
+      <div class="card" style="margin-bottom:16px">
+        <h3 style="margin-bottom:14px">Resumo</h3>
+        <div id="res-list"></div>
+      </div>
+      
+      <div style="display:flex;flex-direction:column;gap:10px;margin-top:20px">
+        <button class="btn" onclick="showTab('generator')">Novo simulado</button>
+        <button class="btn btn-outline" onclick="goToDashboard()">Voltar ao dashboard</button>
+      </div>
+    </div>
+
+  </div> </div>
+
+<script src="script.js"></script>
+</body>
+</html>
