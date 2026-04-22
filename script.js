@@ -44,6 +44,16 @@ async function doSignUp() {
   btn.textContent = 'Criar minha conta'; btn.disabled = false;
 }
 
+/* ── FUNÇÃO AUXILIAR: INÍCIO DA SEMANA (SEGUNDA 00:00) ── */
+function getMondayOfCurrentWeek() {
+  const now = new Date();
+  const day = now.getDay(); // 0 (Dom) a 6 (Sáb)
+  const diff = now.getDate() - day + (day === 0 ? -6 : 1);
+  const monday = new Date(now.setDate(diff));
+  monday.setHours(0, 0, 0, 0);
+  return monday.getTime(); // Retorna em milissegundos para facilitar a comparação
+}
+
 async function doLogin() {
   const email = document.getElementById('login-email').value;
   const pass = document.getElementById('login-pass').value;
@@ -98,6 +108,7 @@ async function renderDashboard(){
   const { data: { user } } = await supabaseClient.auth.getUser();
   if (!user) return;
 
+  // Busca todo o histórico do usuário em uma única viagem ao banco
   const { data: historico, error } = await supabaseClient
     .from('historico_simulados')
     .select('*')
@@ -116,7 +127,6 @@ async function renderDashboard(){
     document.getElementById('stat-simulados').textContent = '0';
     document.getElementById('disc-perf').innerHTML = '<p class="muted" style="font-size:13px">Nenhum simulado realizado ainda.</p>';
     
-    // Zera as metas para usuários novos
     document.getElementById('meta-q-text').innerHTML = `0 <span class="muted">/ 50</span>`;
     document.getElementById('meta-q-bar').style.width = '0%';
     document.getElementById('meta-s-text').innerHTML = `0 <span class="muted">/ 5</span>`;
@@ -135,7 +145,7 @@ async function renderDashboard(){
     return;
   }
 
-  // ESTADO COM DADOS: Calcula o progresso do usuário
+  // ✦✦ VISÃO GLOBAL (Histórico completo) ✦✦
   let totalAcertos = 0;
   let totalErros = 0;
   let tempoTotal = 0;
@@ -156,33 +166,14 @@ async function renderDashboard(){
   const totalQuestoes = totalAcertos + totalErros;
   const taxaAcerto = Math.round((totalAcertos / totalQuestoes) * 100);
   const tempoMedio = Math.round(tempoTotal / totalQuestoes); 
-  
   const min = Math.floor(tempoMedio / 60);
   const seg = tempoMedio % 60;
 
-  // Atualiza Estatísticas Principais
   document.getElementById('stat-resolvidas').textContent = totalQuestoes;
   document.getElementById('stat-taxa').textContent = taxaAcerto + '%';
   document.getElementById('stat-tempo').textContent = min > 0 ? `${min}m${seg}s` : `${seg}s`;
   document.getElementById('stat-simulados').textContent = historico.length;
 
-  // Atualiza a Meta Semanal com dados reais
-  const metaQtd = 50;
-  const metaSim = 5;
-  const pctQ = Math.min(Math.round((totalQuestoes / metaQtd) * 100), 100);
-  const pctS = Math.min(Math.round((historico.length / metaSim) * 100), 100);
-
-  document.getElementById('meta-q-text').innerHTML = `${totalQuestoes} <span class="muted">/ ${metaQtd}</span>`;
-  document.getElementById('meta-q-bar').style.width = pctQ + '%';
-  document.getElementById('meta-s-text').innerHTML = `${historico.length} <span class="muted">/ ${metaSim}</span>`;
-  document.getElementById('meta-s-bar').style.width = pctS + '%';
-
-  const faltam = Math.max(0, metaQtd - totalQuestoes);
-  document.getElementById('meta-desc').textContent = faltam > 0 
-    ? `Faltam ${faltam} questões para atingir sua meta!` 
-    : "Parabéns! Você atingiu sua meta de questões!";
-
-  // Atualiza Barras de Disciplinas
   document.getElementById('disc-perf').innerHTML = Object.keys(performancePorDisciplina).map(nome => {
     const d = performancePorDisciplina[nome];
     const pct = Math.round((d.acertos / d.total) * 100);
@@ -198,6 +189,40 @@ async function renderDashboard(){
       <div class="progress-bar"><div style="height:100%;width:${pct}%;background:${cor};border-radius:99px"></div></div>
     </div>`;
   }).join('');
+
+
+  // ✦✦ VISÃO SEMANAL (Filtro para a caixa de Meta) ✦✦
+  const startOfWeek = getMondayOfCurrentWeek();
+  
+  // O filtro mágico: Retém apenas os simulados criados da última segunda em diante
+  const historicoSemana = historico.filter(s => {
+    const dataSimulado = new Date(s.created_at).getTime();
+    return dataSimulado >= startOfWeek;
+  });
+
+  // Conta quantas questões foram resolvidas APENAS nos simulados dessa semana
+  let questoesSemana = 0;
+  historicoSemana.forEach(s => {
+    questoesSemana += (s.acertos + s.erros);
+  });
+  const simuladosSemana = historicoSemana.length;
+
+  const metaQtd = 50;
+  const metaSim = 5;
+  const pctQ = Math.min(Math.round((questoesSemana / metaQtd) * 100), 100);
+  const pctS = Math.min(Math.round((simuladosSemana / metaSim) * 100), 100);
+
+  // Injeta os dados filtrados na tela
+  document.getElementById('meta-q-text').innerHTML = `${questoesSemana} <span class="muted">/ ${metaQtd}</span>`;
+  document.getElementById('meta-q-bar').style.width = pctQ + '%';
+  document.getElementById('meta-s-text').innerHTML = `${simuladosSemana} <span class="muted">/ ${metaSim}</span>`;
+  document.getElementById('meta-s-bar').style.width = pctS + '%';
+
+  const faltam = Math.max(0, metaQtd - questoesSemana);
+  document.getElementById('meta-desc').textContent = faltam > 0 
+    ? `Faltam ${faltam} questões para atingir sua meta!` 
+    : "Parabéns! Você atingiu sua meta semanal!";
+
 
   // Atualiza Últimos Acessos
   const historicoAcessos = await getLoginHistory(); 
