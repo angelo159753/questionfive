@@ -215,3 +215,156 @@
     .g4{grid-template-columns:1fr 1fr}
     nav .nav-links button{padding:6px 8px;font-size:12px}
   }
+
+  /* ───────────────────────────────────────────────────────── */
+/* REGRAS ADICIONADAS PARA O HTML SEMÂNTICO (REFATORAÇÃO)    */
+/* ───────────────────────────────────────────────────────── */
+
+/* Esconde elementos que possuem o atributo nativo 'hidden' */
+[hidden] {
+  display: none !important;
+}
+
+/* Utilitários de Texto e Destaque */
+.brand-highlight {
+  color: var(--text);
+}
+
+/* Botões que parecem Links (Para Esqueceu a Senha e Alternância de Login) */
+.link-btn {
+  background: none;
+  border: none;
+  padding: 0;
+  font-family: inherit;
+  font-size: 12px;
+  color: var(--muted);
+  cursor: pointer;
+  text-decoration: underline transparent;
+  transition: all 0.2s;
+}
+.link-btn:hover {
+  text-decoration-color: currentColor;
+}
+.link-btn--accent {
+  color: var(--accent);
+  font-weight: 600;
+  font-size: 13px;
+}
+
+/* Espaçamentos e Layouts Específicos */
+.auth-switch {
+  text-align: center;
+  margin-top: 18px;
+  font-size: 13px;
+  color: var(--muted);
+}
+.btn--full {
+  width: 100%;
+  margin-bottom: 10px;
+}
+.form-msg {
+  margin-top: 15px;
+  font-size: 13px;
+  text-align: center;
+}
+.page-header {
+  margin-bottom: 24px;
+}
+.page--narrow {
+  max-width: 660px;
+}
+.page--quiz {
+  max-width: 760px;
+}
+.form-row {
+  margin-bottom: 16px;
+}
+.tags-row {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 18px;
+}
+.stats-row {
+  margin-bottom: 20px;
+}
+.mid-row {
+  margin-bottom: 20px;
+}
+
+/* Textos dos Cartões de Estatísticas (Dashboard) */
+.stat-label {
+  color: var(--muted);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: .5px;
+}
+.stat-sub {
+  font-size: 11px;
+  color: var(--muted);
+  margin-top: 5px;
+}
+.stat-sub--success { color: var(--success); }
+.stat-sub--accent { color: var(--accent); }
+
+/* Caixa de Metas Semanais */
+.meta-row {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 5px;
+}
+.meta-row--top {
+  margin: 14px 0 5px;
+}
+.meta-count {
+  font-size: 13px;
+  font-weight: 600;
+}
+.meta-hint {
+  font-size: 11px;
+  margin-top: 10px;
+}
+.progress-fill--accent { background: var(--accent); }
+.progress-fill--success { background: var(--success); }
+
+/* Ajustes da Tela de Quiz */
+.quiz-card {
+  margin-bottom: 14px;
+}
+.q-text {
+  font-size: 15px;
+  line-height: 1.75;
+  color: var(--text);
+}
+.q-next {
+  margin-top: 16px;
+}
+.error-state {
+  text-align: center;
+  padding: 40px 20px;
+}
+.error-title {
+  color: var(--error);
+  margin-bottom: 8px;
+}
+
+/* Ajustes da Tela de Resultados */
+.result-hero {
+  margin-bottom: 16px;
+  text-align: center;
+  padding: 32px;
+}
+.result-stats {
+  margin-bottom: 16px;
+}
+.result-stat {
+  text-align: center;
+}
+.stat-val--success { color: var(--success); }
+.stat-val--error { color: var(--error); }
+.result-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 20px;
+}
