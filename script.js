@@ -8,8 +8,8 @@ let quiz = { questions:[], current:0, answers:[], startTime:null, config:{}, tim
 
 /* ── AUTH ─────────────────────────────────────────────── */
 function toggleAuth(view) {
-  document.getElementById('card-login').style.display = view === 'signup' ? 'none' : 'block';
-  document.getElementById('card-signup').style.display = view === 'signup' ? 'block' : 'none';
+  document.getElementById('card-login').hidden = view === 'signup';
+  document.getElementById('card-signup').hidden = view === 'login';
 }
 
 async function doSignUp() {
@@ -31,27 +31,14 @@ async function doSignUp() {
     alert('Erro: ' + error.message);
   } else {
     if (data.user) {
-      await supabaseClient.from('perfis').insert([
-        { id: data.user.id, nome: name }
-      ]);
+      await supabaseClient.from('perfis').insert([{ id: data.user.id, nome: name }]);
     }
-
     alert('Conta criada com sucesso! Faça o login.');
     toggleAuth('login');
     document.getElementById('login-email').value = email;
     document.getElementById('login-pass').value = '';
   }
   btn.textContent = 'Criar minha conta'; btn.disabled = false;
-}
-
-/* ── FUNÇÃO AUXILIAR: INÍCIO DA SEMANA (SEGUNDA 00:00) ── */
-function getMondayOfCurrentWeek() {
-  const now = new Date();
-  const day = now.getDay(); // 0 (Dom) a 6 (Sáb)
-  const diff = now.getDate() - day + (day === 0 ? -6 : 1);
-  const monday = new Date(now.setDate(diff));
-  monday.setHours(0, 0, 0, 0);
-  return monday.getTime(); // Retorna em milissegundos para facilitar a comparação
 }
 
 async function doLogin() {
@@ -66,8 +53,8 @@ async function doLogin() {
 
   if (error) alert('Erro: ' + error.message);
   else {
-    document.getElementById('login-page').style.display = 'none';
-    document.getElementById('main-app').style.display = 'block';
+    document.getElementById('login-page').hidden = true;
+    document.getElementById('main-app').hidden = false;
     const userName = data.user.user_metadata?.full_name || 'Estudante';
     document.getElementById('dash-title').textContent = `Bom dia, ${userName} 👋`;
     renderDashboard();    
@@ -77,24 +64,29 @@ async function doLogin() {
 
 async function doLogout(){
   await supabaseClient.auth.signOut();
-  document.getElementById('main-app').style.display = 'none';
-  document.getElementById('login-page').style.display = 'flex';
+  document.getElementById('main-app').hidden = true;
+  document.getElementById('login-page').hidden = false;
 }
 
 /* ── UI & NAVIGATION ──────────────────────────────────── */
 function showTab(tab){
   ['dashboard','generator','quiz','result'].forEach(t=>{
-    document.getElementById('tab-'+t).classList.remove('active');
+    document.getElementById('tab-'+t).hidden = true;
     const nav = document.getElementById('nav-'+t);
-    if(nav) nav.classList.remove('active');
+    if(nav) {
+      nav.classList.remove('active');
+      nav.setAttribute('aria-current', 'false');
+    }
   });
-  document.getElementById('tab-'+tab).classList.add('active');
+  
+  document.getElementById('tab-'+tab).hidden = false;
   const navBtn = document.getElementById('nav-'+tab);
-  if(navBtn) navBtn.classList.add('active');
+  if(navBtn) {
+    navBtn.classList.add('active');
+    navBtn.setAttribute('aria-current', 'page');
+  }
   
   if(tab === 'generator') { updatePreviewTags(); }
-  
-  // Rola a página para o topo suavemente ao trocar de tela
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
@@ -103,12 +95,21 @@ function goToDashboard() {
   showTab('dashboard');
 }
 
+/* ── FUNÇÃO AUXILIAR: INÍCIO DA SEMANA ────────────────── */
+function getMondayOfCurrentWeek() {
+  const now = new Date();
+  const day = now.getDay(); 
+  const diff = now.getDate() - day + (day === 0 ? -6 : 1);
+  const monday = new Date(now.setDate(diff));
+  monday.setHours(0, 0, 0, 0);
+  return monday.getTime(); 
+}
+
 /* ── DASHBOARD ────────────────────────────────────────── */
 async function renderDashboard(){
   const { data: { user } } = await supabaseClient.auth.getUser();
   if (!user) return;
 
-  // Busca todo o histórico do usuário em uma única viagem ao banco
   const { data: historico, error } = await supabaseClient
     .from('historico_simulados')
     .select('*')
@@ -119,7 +120,6 @@ async function renderDashboard(){
     return;
   }
 
-  // ESTADO VAZIO: Usuário novo
   if (!historico || historico.length === 0) {
     document.getElementById('stat-resolvidas').textContent = '0';
     document.getElementById('stat-taxa').textContent = '0%';
@@ -141,14 +141,10 @@ async function renderDashboard(){
       </div>`).join('');
     const loginHistEl = document.getElementById('login-history');
     if (loginHistEl) loginHistEl.innerHTML = historyHtml;
-    
     return;
   }
 
-  // ✦✦ VISÃO GLOBAL (Histórico completo) ✦✦
-  let totalAcertos = 0;
-  let totalErros = 0;
-  let tempoTotal = 0;
+  let totalAcertos = 0; let totalErros = 0; let tempoTotal = 0;
   const performancePorDisciplina = {};
 
   historico.forEach(simulado => {
@@ -177,11 +173,9 @@ async function renderDashboard(){
   document.getElementById('disc-perf').innerHTML = Object.keys(performancePorDisciplina).map(nome => {
     const d = performancePorDisciplina[nome];
     const pct = Math.round((d.acertos / d.total) * 100);
-    
     let cor = 'var(--error)';
     if (pct >= 50) cor = 'var(--accent)';
     if (pct >= 75) cor = 'var(--success)';
-
     return `<div style="margin-bottom:13px">
       <div style="display:flex;justify-content:space-between;margin-bottom:5px;font-size:13px">
         <span>${nome}</span><strong>${pct}% <span class="muted">(${d.acertos}/${d.total})</span></strong>
@@ -190,29 +184,17 @@ async function renderDashboard(){
     </div>`;
   }).join('');
 
-
-  // ✦✦ VISÃO SEMANAL (Filtro para a caixa de Meta) ✦✦
   const startOfWeek = getMondayOfCurrentWeek();
-  
-  // O filtro mágico: Retém apenas os simulados criados da última segunda em diante
-  const historicoSemana = historico.filter(s => {
-    const dataSimulado = new Date(s.created_at).getTime();
-    return dataSimulado >= startOfWeek;
-  });
+  const historicoSemana = historico.filter(s => new Date(s.created_at).getTime() >= startOfWeek);
 
-  // Conta quantas questões foram resolvidas APENAS nos simulados dessa semana
   let questoesSemana = 0;
-  historicoSemana.forEach(s => {
-    questoesSemana += (s.acertos + s.erros);
-  });
+  historicoSemana.forEach(s => questoesSemana += (s.acertos + s.erros));
   const simuladosSemana = historicoSemana.length;
 
-  const metaQtd = 50;
-  const metaSim = 5;
+  const metaQtd = 50; const metaSim = 5;
   const pctQ = Math.min(Math.round((questoesSemana / metaQtd) * 100), 100);
   const pctS = Math.min(Math.round((simuladosSemana / metaSim) * 100), 100);
 
-  // Injeta os dados filtrados na tela
   document.getElementById('meta-q-text').innerHTML = `${questoesSemana} <span class="muted">/ ${metaQtd}</span>`;
   document.getElementById('meta-q-bar').style.width = pctQ + '%';
   document.getElementById('meta-s-text').innerHTML = `${simuladosSemana} <span class="muted">/ ${metaSim}</span>`;
@@ -223,17 +205,13 @@ async function renderDashboard(){
     ? `Faltam ${faltam} questões para atingir sua meta!` 
     : "Parabéns! Você atingiu sua meta semanal!";
 
-
-  // Atualiza Últimos Acessos
   const historicoAcessos = await getLoginHistory(); 
   const historyHtml = historicoAcessos.map(l => `
     <div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border)">
       <div><div style="font-size:13px;font-weight:500">${l.data}</div><div class="muted" style="font-size:11px">${l.disp}</div></div>
       <span class="tag" style="height:fit-content">${l.local}</span>
     </div>`).join('');
-  
-  const loginHistEl = document.getElementById('login-history');
-  if (loginHistEl) loginHistEl.innerHTML = historyHtml;
+  document.getElementById('login-history').innerHTML = historyHtml;
 }
 
 /* ── UI & NAVIGATION (Tags Dinâmicas) ─────────────────── */
@@ -245,18 +223,12 @@ function updatePreviewTags(){
   if(!el) return;
   
   const assuntoTexto = ass.value.trim() ? `<span class="badge badge-blue">${ass.value.trim()}</span>` : '';
-  
   el.innerHTML = `<span class="badge badge-blue">${disc.value}</span>
                   ${assuntoTexto}
                   <span class="badge badge-green">${qtd.value} questões</span>`;
 }
 
-['sel-disciplina','sel-qtd','sel-ano'].forEach(id=>{
-  document.getElementById(id)?.addEventListener('change', updatePreviewTags);
-});
-document.getElementById('sel-assunto')?.addEventListener('input', updatePreviewTags);
-
-/* ── GEMINI API & QUIZ (VIA SUPABASE EDGE FUNCTION) ────────────────── */
+/* ── GEMINI API & QUIZ ────────────────────────────────── */
 async function startSimulado(){
   const disc = document.getElementById('sel-disciplina').value;
   const ass = document.getElementById('sel-assunto').value;
@@ -264,9 +236,9 @@ async function startSimulado(){
   const ano = document.getElementById('sel-ano').value;
 
   showTab('quiz');
-  document.getElementById('quiz-loading').style.display = 'flex';
-  document.getElementById('quiz-content').style.display = 'none';
-  document.getElementById('quiz-error').style.display = 'none';
+  document.getElementById('quiz-loading').hidden = false;
+  document.getElementById('quiz-content').hidden = true;
+  document.getElementById('quiz-error').hidden = true;
 
   try {
     const { data, error } = await supabaseClient.functions.invoke('gerar-questoes', {
@@ -284,16 +256,16 @@ async function startSimulado(){
       config: { disc, ass, qtd, ano } 
     };
     
-    document.getElementById('quiz-loading').style.display = 'none';
-    document.getElementById('quiz-content').style.display = 'block';
+    document.getElementById('quiz-loading').hidden = true;
+    document.getElementById('quiz-content').hidden = false;
     
     startTimer(); 
     renderQuestion();
 
   } catch(e) {
     console.error("Erro no Backend:", e);
-    document.getElementById('quiz-loading').style.display = 'none';
-    document.getElementById('quiz-error').style.display = 'block';
+    document.getElementById('quiz-loading').hidden = true;
+    document.getElementById('quiz-error').hidden = false;
     document.getElementById('quiz-error-msg').textContent = "Falha ao gerar questões com a IA. Tente novamente.";
   }
 }
@@ -312,12 +284,14 @@ function renderQuestion(){
   document.getElementById('q-progress').style.width = Math.round(((quiz.current+1)/quiz.questions.length)*100)+'%';
   document.getElementById('q-tags').innerHTML = `<span class="badge badge-blue">${q.disc}</span><span class="tag">${q.ass}</span>`;
   document.getElementById('q-enunciado').textContent = q.enunciado;
-  document.getElementById('q-comment').style.display = 'none';
-  document.getElementById('q-next').style.display = 'none';
+  document.getElementById('q-comment').hidden = true;
+  document.getElementById('q-next').hidden = true;
 
   const letters = ['A','B','C','D','E'];
+  
+  // ATENÇÃO: Substituímos o onclick pelo data-index
   document.getElementById('q-alts').innerHTML = q.alternativas.map((a,i)=>`
-    <button class="alt-btn" onclick="selectAlt(${i})" id="alt-${i}">
+    <button type="button" class="alt-btn" data-index="${i}" id="alt-${i}">
       <span class="alt-letter">${letters[i]}</span><span>${a}</span>
     </button>`).join('');
 }
@@ -337,11 +311,11 @@ function selectAlt(idx){
       <div style="margin-bottom:10px"><span class="badge ${isCorrect?'badge-green':'badge-orange'}">${isCorrect?'✓ Acertou':'✗ Errou'}</span></div>
       <p style="font-size:13px;color:var(--muted)">${q.comentario}</p>
     </div>`;
-  document.getElementById('q-comment').style.display = 'block';
+  document.getElementById('q-comment').hidden = false;
   
   const isLast = quiz.current === quiz.questions.length-1;
   document.getElementById('btn-next').textContent = isLast ? 'Ver resultado →' : 'Próxima questão →';
-  document.getElementById('q-next').style.display = 'block';
+  document.getElementById('q-next').hidden = false;
 }
 
 function nextQuestion(){
@@ -376,37 +350,29 @@ async function showResult(){
     </div>`).join('');
   
   const { data: { user } } = await supabaseClient.auth.getUser();
-  
   if (user) {
     const { error } = await supabaseClient.from('historico_simulados').insert([{
-      user_id: user.id,
-      disciplina: quiz.config.disc,
-      acertos: acertos,
-      erros: erros,
-      tempo_segundos: elapsed
+      user_id: user.id, disciplina: quiz.config.disc, acertos: acertos, erros: erros, tempo_segundos: elapsed
     }]);
-
-    if (error) console.error("Erro ao salvar histórico no banco:", error);
+    if (error) console.error("Erro ao salvar histórico:", error);
   }
-  
   showTab('result');
 }
 
 /* ── RECUPERAÇÃO DE SENHA ───────────────────────────── */
 function showForgotPassword() {
-  document.getElementById('card-login').style.display = 'none'; 
-  document.getElementById('forgot-box').style.display = 'block';
+  document.getElementById('card-login').hidden = true; 
+  document.getElementById('forgot-box').hidden = false;
 }
 
 function hideForgotPassword() {
-  document.getElementById('forgot-box').style.display = 'none';
-  document.getElementById('card-login').style.display = 'block'; 
+  document.getElementById('forgot-box').hidden = true;
+  document.getElementById('card-login').hidden = false; 
 }
 
 async function sendRecoveryEmail() {
   const email = document.getElementById('forgot-email').value;
   const msgEl = document.getElementById('forgot-msg');
-  
   if(!email) return msgEl.innerHTML = "<span style='color:var(--error)'>Digite seu email.</span>";
   msgEl.innerHTML = "Enviando...";
 
@@ -414,67 +380,33 @@ async function sendRecoveryEmail() {
     redirectTo: window.location.origin + window.location.pathname,
   });
 
-  if (error) {
-    msgEl.innerHTML = `<span style='color:var(--error)'>Erro: ${error.message}</span>`;
-  } else {
-    msgEl.innerHTML = `<span style='color:var(--success)'>Link enviado! Verifique sua caixa de entrada (e o Spam).</span>`;
-  }
+  if (error) msgEl.innerHTML = `<span style='color:var(--error)'>Erro: ${error.message}</span>`;
+  else msgEl.innerHTML = `<span style='color:var(--success)'>Link enviado! Verifique sua caixa de entrada.</span>`;
 }
 
 async function updatePassword() {
   const newPass = document.getElementById('new-password').value;
   const msgEl = document.getElementById('reset-msg');
-  
   if(newPass.length < 6) return msgEl.innerHTML = "<span style='color:var(--error)'>A senha deve ter no mínimo 6 caracteres.</span>";
   msgEl.innerHTML = "Salvando...";
 
   const { error } = await supabaseClient.auth.updateUser({ password: newPass });
 
-  if (error) {
-    msgEl.innerHTML = `<span style='color:var(--error)'>Erro: ${error.message}</span>`;
-  } else {
+  if (error) msgEl.innerHTML = `<span style='color:var(--error)'>Erro: ${error.message}</span>`;
+  else {
     msgEl.innerHTML = `<span style='color:var(--success)'>Senha atualizada! Entrando...</span>`;
     setTimeout(() => {
       window.location.hash = ''; 
-      document.getElementById('reset-box').style.display = 'none';
+      document.getElementById('reset-box').hidden = true;
       checkUserSession();
     }, 1500);
   }
 }
 
-/* ── INIT E SESSÃO ────────────────────────────────────── */
-async function checkUserSession() {
-  // ✦ DETETIVE DE RECUPERAÇÃO DE SENHA ✦
-  if (window.location.hash && window.location.hash.includes('type=recovery')) {
-    document.getElementById('login-page').style.display = 'flex';
-    document.getElementById('main-app').style.display = 'none';
-    
-    document.getElementById('card-login').style.display = 'none'; 
-    document.getElementById('forgot-box').style.display = 'none';
-    document.getElementById('reset-box').style.display = 'block';
-    return;
-  }
-  
-  const { data: { session }, error } = await supabaseClient.auth.getSession();
-
-  if (session && session.user) {
-    document.getElementById('login-page').style.display = 'none';
-    document.getElementById('main-app').style.display = 'block';
-    
-    const userName = session.user.user_metadata?.full_name || 'Estudante';
-    document.getElementById('dash-title').textContent = `Bom dia, ${userName} 👋`;
-    
-    renderDashboard();    
-  } else {
-    document.getElementById('login-page').style.display = 'flex';
-    document.getElementById('main-app').style.display = 'none';
-  }
-}
-
+/* ── RASTREAMENTO IP ──────────────────────────────────── */
 async function getLoginHistory() {
   let history = JSON.parse(localStorage.getItem('qf_login_history') || '[]');
   const now = new Date();
-  
   const lastRecord = history[0] ? new Date(history[0].rawDate) : new Date(0);
   const hoursSinceLast = (now - lastRecord) / (1000 * 60 * 60);
   
@@ -482,36 +414,94 @@ async function getLoginHistory() {
     const ua = navigator.userAgent;
     let browser = ua.includes("Chrome") ? "Chrome" : ua.includes("Firefox") ? "Firefox" : ua.includes("Safari") ? "Safari" : "Navegador";
     let os = ua.includes("Windows") ? "Windows" : ua.includes("Mac") ? "MacOS" : ua.includes("Android") || ua.includes("iPhone") ? "Mobile" : "Desktop";
-    
     let regiao = "Brasil";
     
     try {
       const res = await fetch('https://get.geojs.io/v1/ip/geo.json');
       const geo = await res.json();
-      
-      if (geo.city && geo.region) {
-        regiao = `${geo.city}, ${geo.region}`; 
-      }
-    } catch(e) {
-      console.error("Falha na API de IP:", e);
-    }
+      if (geo.city && geo.region) regiao = `${geo.city}, ${geo.region}`; 
+    } catch(e) { console.error("Falha na API de IP:", e); }
     
     const dataStr = now.toLocaleDateString('pt-BR') + ', ' + now.toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'});
-    
-    history.unshift({ 
-      data: dataStr, 
-      disp: `${browser} / ${os}`, 
-      local: regiao, 
-      rawDate: now.toISOString() 
-    });
-    
+    history.unshift({ data: dataStr, disp: `${browser} / ${os}`, local: regiao, rawDate: now.toISOString() });
     history = history.slice(0, 3); 
     localStorage.setItem('qf_login_history', JSON.stringify(history));
   }
-  
   return history;
 }
 
-// Inicia as validações e as tags ao abrir a página
+/* ── INIT E SESSÃO ────────────────────────────────────── */
+async function checkUserSession() {
+  if (window.location.hash && window.location.hash.includes('type=recovery')) {
+    document.getElementById('login-page').hidden = false;
+    document.getElementById('main-app').hidden = true;
+    document.getElementById('card-login').hidden = true; 
+    document.getElementById('forgot-box').hidden = true;
+    document.getElementById('reset-box').hidden = false;
+    return;
+  }
+  
+  const { data: { session } } = await supabaseClient.auth.getSession();
+
+  if (session && session.user) {
+    document.getElementById('login-page').hidden = true;
+    document.getElementById('main-app').hidden = false;
+    const userName = session.user.user_metadata?.full_name || 'Estudante';
+    document.getElementById('dash-title').textContent = `Bom dia, ${userName} 👋`;
+    renderDashboard();    
+  } else {
+    document.getElementById('login-page').hidden = false;
+    document.getElementById('main-app').hidden = true;
+  }
+}
+
+/* ── EVENT LISTENERS (O "PABX" DO NOVO HTML) ──────────── */
+function initListeners() {
+  // Tela de Login / Cadastro
+  document.getElementById('btn-login')?.addEventListener('click', doLogin);
+  document.getElementById('btn-signup')?.addEventListener('click', doSignUp);
+  document.getElementById('goto-signup')?.addEventListener('click', () => toggleAuth('signup'));
+  document.getElementById('goto-login')?.addEventListener('click', () => toggleAuth('login'));
+  
+  // Recuperação de Senha
+  document.getElementById('btn-forgot')?.addEventListener('click', showForgotPassword);
+  document.getElementById('btn-back-login')?.addEventListener('click', hideForgotPassword);
+  document.getElementById('btn-send-recovery')?.addEventListener('click', sendRecoveryEmail);
+  document.getElementById('btn-update-pass')?.addEventListener('click', updatePassword);
+
+  // Navegação Principal
+  document.getElementById('btn-logout')?.addEventListener('click', doLogout);
+  document.getElementById('nav-dashboard')?.addEventListener('click', () => showTab('dashboard'));
+  document.getElementById('nav-generator')?.addEventListener('click', () => showTab('generator'));
+
+  // Ações do Gerador
+  document.getElementById('btn-gerar')?.addEventListener('click', startSimulado);
+  ['sel-disciplina','sel-qtd','sel-ano'].forEach(id => {
+    document.getElementById(id)?.addEventListener('change', updatePreviewTags);
+  });
+  document.getElementById('sel-assunto')?.addEventListener('input', updatePreviewTags);
+
+  // Ações do Quiz
+  document.getElementById('btn-quit-quiz')?.addEventListener('click', endQuiz);
+  document.getElementById('btn-next')?.addEventListener('click', nextQuestion);
+  document.getElementById('btn-back-generator')?.addEventListener('click', () => showTab('generator'));
+
+  // Ações do Resultado
+  document.getElementById('btn-new-sim')?.addEventListener('click', () => showTab('generator'));
+  document.getElementById('btn-go-dash')?.addEventListener('click', goToDashboard);
+
+  // Delegação de Eventos para as Alternativas do Quiz (A, B, C, D)
+  document.getElementById('q-alts')?.addEventListener('click', (e) => {
+    const btn = e.target.closest('.alt-btn');
+    // Se clicou em um botão e ele não está desativado
+    if(btn && !btn.disabled) {
+      const idx = parseInt(btn.getAttribute('data-index'));
+      selectAlt(idx);
+    }
+  });
+}
+
+// INICIALIZAÇÃO
+initListeners();
 checkUserSession();
 updatePreviewTags();
