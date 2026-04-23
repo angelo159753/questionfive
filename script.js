@@ -6,6 +6,28 @@ const supabaseClient = window.supabase.createClient(supabaseUrl, supabaseKey);
 /* ── DATA & STATE ─────────────────────────────────────── */
 let quiz = { questions:[], current:0, answers:[], startTime:null, config:{}, timerInterval:null };
 
+/* ── FUNÇÕES AUXILIARES ───────────────────────────────── */
+function getSaudacao() {
+  const h = new Date().getHours();
+  return h < 12 ? 'Bom dia' : h < 18 ? 'Boa tarde' : 'Boa noite';
+}
+
+function getMondayOfCurrentWeek() {
+  const now = new Date();
+  const day = now.getDay(); 
+  const diff = now.getDate() - day + (day === 0 ? -6 : 1);
+  const monday = new Date(now.setDate(diff));
+  monday.setHours(0, 0, 0, 0);
+  return monday.getTime(); 
+}
+
+function getTituloResultado(pct) {
+  if (pct >= 80) return 'Excelente! 🏆';
+  if (pct >= 60) return 'Muito bom! 🎯';
+  if (pct >= 40) return 'Continue praticando! 💪';
+  return 'Não desista! 🌱';
+}
+
 /* ── AUTH ─────────────────────────────────────────────── */
 function toggleAuth(view) {
   document.getElementById('card-login').hidden = view === 'signup';
@@ -55,8 +77,11 @@ async function doLogin() {
   else {
     document.getElementById('login-page').hidden = true;
     document.getElementById('main-app').hidden = false;
+    
+    // A variável é criada aqui e injetada com segurança logo em seguida
     const userName = data.user.user_metadata?.full_name || 'Estudante';
-    document.getElementById('dash-title').textContent = `Bom dia, ${userName} 👋`;
+    document.getElementById('dash-title').textContent = `${getSaudacao()}, ${userName} 👋`;
+    
     renderDashboard();    
   }
   btn.textContent = 'Entrar na plataforma'; btn.disabled = false;
@@ -71,7 +96,11 @@ async function doLogout(){
 /* ── UI & NAVIGATION ──────────────────────────────────── */
 function showTab(tab){
   ['dashboard','generator','quiz','result'].forEach(t=>{
-    document.getElementById('tab-'+t).hidden = true;
+    const page = document.getElementById('tab-'+t);
+    if(page) {
+      page.hidden = true;
+      page.classList.remove('active'); 
+    }
     const nav = document.getElementById('nav-'+t);
     if(nav) {
       nav.classList.remove('active');
@@ -79,7 +108,12 @@ function showTab(tab){
     }
   });
   
-  document.getElementById('tab-'+tab).hidden = false;
+  const targetPage = document.getElementById('tab-'+tab);
+  if(targetPage) {
+    targetPage.hidden = false;
+    targetPage.classList.add('active'); 
+  }
+
   const navBtn = document.getElementById('nav-'+tab);
   if(navBtn) {
     navBtn.classList.add('active');
@@ -93,16 +127,6 @@ function showTab(tab){
 function goToDashboard() {
   renderDashboard();
   showTab('dashboard');
-}
-
-/* ── FUNÇÃO AUXILIAR: INÍCIO DA SEMANA ────────────────── */
-function getMondayOfCurrentWeek() {
-  const now = new Date();
-  const day = now.getDay(); 
-  const diff = now.getDate() - day + (day === 0 ? -6 : 1);
-  const monday = new Date(now.setDate(diff));
-  monday.setHours(0, 0, 0, 0);
-  return monday.getTime(); 
 }
 
 /* ── DASHBOARD ────────────────────────────────────────── */
@@ -139,8 +163,7 @@ async function renderDashboard(){
         <div><div style="font-size:13px;font-weight:500">${l.data}</div><div class="muted" style="font-size:11px">${l.disp}</div></div>
         <span class="tag" style="height:fit-content">${l.local}</span>
       </div>`).join('');
-    const loginHistEl = document.getElementById('login-history');
-    if (loginHistEl) loginHistEl.innerHTML = historyHtml;
+    document.getElementById('login-history').innerHTML = historyHtml;
     return;
   }
 
@@ -185,7 +208,11 @@ async function renderDashboard(){
   }).join('');
 
   const startOfWeek = getMondayOfCurrentWeek();
-  const historicoSemana = historico.filter(s => new Date(s.created_at).getTime() >= startOfWeek);
+  const historicoSemana = historico.filter(s => {
+    if (!s.criado_em) return false; 
+    const dataSimulado = new Date(s.criado_em).getTime();
+    return dataSimulado >= startOfWeek;
+  });
 
   let questoesSemana = 0;
   historicoSemana.forEach(s => questoesSemana += (s.acertos + s.erros));
@@ -289,7 +316,6 @@ function renderQuestion(){
 
   const letters = ['A','B','C','D','E'];
   
-  // ATENÇÃO: Substituímos o onclick pelo data-index
   document.getElementById('q-alts').innerHTML = q.alternativas.map((a,i)=>`
     <button type="button" class="alt-btn" data-index="${i}" id="alt-${i}">
       <span class="alt-letter">${letters[i]}</span><span>${a}</span>
@@ -337,6 +363,7 @@ async function showResult(){
   const elapsed = Math.floor((Date.now()-quiz.startTime)/1000); 
   const m = Math.floor(elapsed/60), s = elapsed%60;
   
+  document.getElementById('res-title').textContent = getTituloResultado(pct);
   document.getElementById('res-score').textContent = pct+'%';
   document.getElementById('res-acertos').textContent = acertos;
   document.getElementById('res-erros').textContent = erros;
@@ -403,7 +430,7 @@ async function updatePassword() {
   }
 }
 
-/* ── RASTREAMENTO IP ──────────────────────────────────── */
+/* ── RASTREAMENTO LOCAL (LGPD COMPLIANT) ──────────────── */
 async function getLoginHistory() {
   let history = JSON.parse(localStorage.getItem('qf_login_history') || '[]');
   const now = new Date();
@@ -414,13 +441,9 @@ async function getLoginHistory() {
     const ua = navigator.userAgent;
     let browser = ua.includes("Chrome") ? "Chrome" : ua.includes("Firefox") ? "Firefox" : ua.includes("Safari") ? "Safari" : "Navegador";
     let os = ua.includes("Windows") ? "Windows" : ua.includes("Mac") ? "MacOS" : ua.includes("Android") || ua.includes("iPhone") ? "Mobile" : "Desktop";
-    let regiao = "Brasil";
     
-    try {
-      const res = await fetch('https://get.geojs.io/v1/ip/geo.json');
-      const geo = await res.json();
-      if (geo.city && geo.region) regiao = `${geo.city}, ${geo.region}`; 
-    } catch(e) { console.error("Falha na API de IP:", e); }
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    let regiao = tz && tz.includes('/') ? tz.split('/')[1].replace(/_/g, ' ') : 'Brasil';
     
     const dataStr = now.toLocaleDateString('pt-BR') + ', ' + now.toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'});
     history.unshift({ data: dataStr, disp: `${browser} / ${os}`, local: regiao, rawDate: now.toISOString() });
@@ -446,8 +469,10 @@ async function checkUserSession() {
   if (session && session.user) {
     document.getElementById('login-page').hidden = true;
     document.getElementById('main-app').hidden = false;
+    
     const userName = session.user.user_metadata?.full_name || 'Estudante';
-    document.getElementById('dash-title').textContent = `Bom dia, ${userName} 👋`;
+    document.getElementById('dash-title').textContent = `${getSaudacao()}, ${userName} 👋`;
+    
     renderDashboard();    
   } else {
     document.getElementById('login-page').hidden = false;
@@ -455,45 +480,37 @@ async function checkUserSession() {
   }
 }
 
-/* ── EVENT LISTENERS (O "PABX" DO NOVO HTML) ──────────── */
+/* ── EVENT LISTENERS (O "PABX" DO HTML SEMÂNTICO) ──────────── */
 function initListeners() {
-  // Tela de Login / Cadastro
   document.getElementById('btn-login')?.addEventListener('click', doLogin);
   document.getElementById('btn-signup')?.addEventListener('click', doSignUp);
   document.getElementById('goto-signup')?.addEventListener('click', () => toggleAuth('signup'));
   document.getElementById('goto-login')?.addEventListener('click', () => toggleAuth('login'));
   
-  // Recuperação de Senha
   document.getElementById('btn-forgot')?.addEventListener('click', showForgotPassword);
   document.getElementById('btn-back-login')?.addEventListener('click', hideForgotPassword);
   document.getElementById('btn-send-recovery')?.addEventListener('click', sendRecoveryEmail);
   document.getElementById('btn-update-pass')?.addEventListener('click', updatePassword);
 
-  // Navegação Principal
   document.getElementById('btn-logout')?.addEventListener('click', doLogout);
   document.getElementById('nav-dashboard')?.addEventListener('click', () => showTab('dashboard'));
   document.getElementById('nav-generator')?.addEventListener('click', () => showTab('generator'));
 
-  // Ações do Gerador
   document.getElementById('btn-gerar')?.addEventListener('click', startSimulado);
   ['sel-disciplina','sel-qtd','sel-ano'].forEach(id => {
     document.getElementById(id)?.addEventListener('change', updatePreviewTags);
   });
   document.getElementById('sel-assunto')?.addEventListener('input', updatePreviewTags);
 
-  // Ações do Quiz
   document.getElementById('btn-quit-quiz')?.addEventListener('click', endQuiz);
   document.getElementById('btn-next')?.addEventListener('click', nextQuestion);
   document.getElementById('btn-back-generator')?.addEventListener('click', () => showTab('generator'));
 
-  // Ações do Resultado
   document.getElementById('btn-new-sim')?.addEventListener('click', () => showTab('generator'));
   document.getElementById('btn-go-dash')?.addEventListener('click', goToDashboard);
 
-  // Delegação de Eventos para as Alternativas do Quiz (A, B, C, D)
   document.getElementById('q-alts')?.addEventListener('click', (e) => {
     const btn = e.target.closest('.alt-btn');
-    // Se clicou em um botão e ele não está desativado
     if(btn && !btn.disabled) {
       const idx = parseInt(btn.getAttribute('data-index'));
       selectAlt(idx);
